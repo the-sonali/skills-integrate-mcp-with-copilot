@@ -6,6 +6,7 @@ for extracurricular activities at Mergington High School.
 """
 
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 import os
@@ -18,6 +19,7 @@ app = FastAPI(title="Mergington High School API",
 current_dir = Path(__file__).parent
 app.mount("/static", StaticFiles(directory=os.path.join(Path(__file__).parent,
           "static")), name="static")
+
 
 # In-memory activity database
 activities = {
@@ -77,6 +79,16 @@ activities = {
     }
 }
 
+# In-memory student profiles
+class StudentProfile(BaseModel):
+    email: str
+    name: str
+    grade: str
+    interests: list[str] = []
+    skills: list[str] = []
+
+student_profiles = {}
+
 
 @app.get("/")
 def root():
@@ -86,6 +98,35 @@ def root():
 @app.get("/activities")
 def get_activities():
     return activities
+
+# Student profile endpoints
+@app.get("/students")
+def get_students():
+    """Get all student profiles"""
+    return list(student_profiles.values())
+
+@app.get("/students/{email}")
+def get_student(email: str):
+    """Get a student profile by email"""
+    if email not in student_profiles:
+        raise HTTPException(status_code=404, detail="Student not found")
+    return student_profiles[email]
+
+@app.post("/students")
+def create_student(profile: StudentProfile):
+    """Create a new student profile"""
+    if profile.email in student_profiles:
+        raise HTTPException(status_code=400, detail="Student already exists")
+    student_profiles[profile.email] = profile.dict()
+    return {"message": f"Created profile for {profile.email}"}
+
+@app.put("/students/{email}")
+def update_student(email: str, profile: StudentProfile):
+    """Update an existing student profile"""
+    if email not in student_profiles:
+        raise HTTPException(status_code=404, detail="Student not found")
+    student_profiles[email] = profile.dict()
+    return {"message": f"Updated profile for {email}"}
 
 
 @app.post("/activities/{activity_name}/signup")
